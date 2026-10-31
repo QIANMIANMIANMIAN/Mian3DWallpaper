@@ -31,6 +31,9 @@ object XposedState3D : XposedServiceHelper.OnServiceListener {
 
     private const val TAG = "Mian3D"
 
+    /** 目标：vivo 主题 App */
+    private const val PKG_THEME = "com.bbk.theme"
+
     @Volatile
     private var service: XposedService? = null
 
@@ -82,41 +85,89 @@ object XposedState3D : XposedServiceHelper.OnServiceListener {
     fun usingRemote(): Boolean = remotePrefs != null
 
     /**
-     * 读取 LSPosed 侧诊断状态：作用域列表 + 是否已激活。
+     * 读取 LSPosed 侧诊断状态。
      *
-     * 用途：hook 日志为空时，直接判断是「作用域没勾」还是「模块没启用」，
-     * 用户不用翻 LSPosed 界面猜。
+     * ============================ 之前为什么不准确 ============================
+     * 旧版只看 `service.scope`（模块声明的目标列表），就下结论说"作用域正确"。
+     * 但 scope 只是【声明】，不代表模块真的被注入到那个进程里。
+     *
+     * 准确的判据是 `service.runningTargets`：
+     * 它返回【当前真正被 hook 注入的进程】，只有进程真实存在且注入成功才会有。
+     *
+     * 所以现在分三层报：
+     *   ① 服务是否连上（LSPosed 里模块启用了吗）
+     *   ② 声明的作用域里有没有 com.bbk.theme
+     *   ③ runningTargets 里有没有 com.bbk.theme —— ★ 这才是"真的注入成功"
      */
     fun diagnose(context: Context): String {
         val sb = StringBuilder()
         val s = service
         if (s == null) {
-            sb.append("LSPosed 服务：未连接\n")
-            sb.append("→ 请确认 LSPosed 已安装并启用，且本模块在其列表中是开启状态")
+            sb.append("LSPosed 服务：❌ 未连接\n")
+            sb.append("→ 请确认 LSPosed 已安装并启用，且本模块在其模块列表中是【开启】状态")
             return sb.toString()
         }
 
-        sb.append("LSPosed 服务：已连接\n")
+        sb.append("LSPosed 服务：✅ 已连接\n")
 
+        // ---- 框架信息 ----
+        runCatching {
+            sb.append("框架：").append(s.frameworkName)
+                .append(" ").append(s.frameworkVersion)
+                .append("（API ").append(s.apiVersion).append("）\n")
+        }
+
+        // ---- ② 声明的作用域 ----
         runCatching {
             val scope = s.scope.orEmpty()
-            sb.append("模块作用域（").append(scope.size).append(" 个）：\n")
+            sb.append("\n② 声明作用域（").append(scope.size).append(" 个）：")
             if (scope.isEmpty()) {
-                sb.append("  （空！必须在 LSPosed 里勾选「主题」）\n")
+                sb.append("❌ 空\n")
+                sb.append("→ LSPosed → 模块 → 米安3D壁纸 → 勾选「主题」")
             } else {
+                sb.append('\n')
                 scope.forEach { p ->
-                    val mark = if (p == "com.bbk.theme") "  ✅ " else "  ·  "
-                    sb.append(mark).append(p).append('\n')
+                    sb.append(if (p == PKG_THEME) "  ✅ " else "  ·  ").append(p).append('\n')
+                }
+                if (!scope.contains(PKG_THEME)) {
+                    sb.append("  ⚠ 里面没有 com.bbk.theme！\n")
+                    sb.append("  → 去 LSPosed 勾选「主题」")
                 }
             }
-            if (!scope.contains("com.bbk.theme")) {
-                sb.append("\n⚠ 作用域里没有 com.bbk.theme！\n")
-                sb.append("→ 打开 LSPosed → 模块 → 米安3D壁纸 → 勾选「主题」\n")
-                sb.append("→ 然后强行停止主题 App 并重开")
+        }.onFailure {
+            sb.append("\n② 读取作用域失败：").append(it.javaClass.simpleName)
+                .append(' ').append(it.message)
+        }
+
+        // ---- ③ 真实注入状态（关键）----
+        runCatching {
+            val targets = s.getRunningTargets()
+            sb.append("\n③ 已注入进程（").append(targets.size).append(" 个）：")
+            if (targets.isEmpty()) {
+                sb.append("❌ 无\n")
+                sb.append("→ 模块还没被任何进程加载。\n")
+                sb.append("→ 改变作用域后必须【强行停止主题 App】再重开")
+            } else {
+                sb.append('\n')
+                val names = targets.mapNotNull { it.processName }.distinct()
+                names.forEach { p ->
+                    sb.append(if (p.startsWith(PKG_THEME)) "  ✅ " else "  ·  ")
+                        .append(p).append('\n')
+                }
+
+                val hit = names.any { it.startsWith(PKG_THEME) }
+                if (hit) {
+                    sb.append("\n✅ 主题进程已注入，hook 应该已在工作")
+                } else {
+                    sb.append("\n⚠ 主题进程【没有】被注入！")
+                    sb.append("\n→ 作用域虽勾了，但进程还没重载：")
+                    sb.append("\n   设置 → 应用 → 主题 → 强行停止 → 重新打开")
+                }
             }
         }.onFailure {
-            sb.append("读取作用域失败：").append(it.javaClass.simpleName)
-                .append(' ').append(it.message).append('\n')
+            sb.append("\n③ 读取运行目标失败：").append(it.javaClass.simpleName)
+                .append(' ').append(it.message)
+                .append("\n（该框架版本可能不支持 runningTargets）")
         }
 
         return sb.toString()
@@ -185,15 +236,9 @@ internal object Log3DApp {
             sb.append(diag).append('\n')
         }
 
-        // ---- ② Documents ----
-        sb.append("\n---------- [2] hook 日志（Documents 文件）----------\n")
-        val docDir = File(
-            android.os.Environment.getExternalStoragePublicDirectory(
-                android.os.Environment.DIRECTORY_DOCUMENTS,
-            ),
-            "Mian3D",
-        )
-        sb.append(readDir(docDir))
+        // ---- ② Documents（用户实测 hook 日志就落在这里）----
+        sb.append("\n---------- [2] hook 日志（Documents/Mian3D）----------\n")
+        sb.append(readHookLogDir())
 
         // ---- ③ /data/local/tmp ----
         sb.append("\n---------- [3] hook 日志（/data/local/tmp，需 root）----------\n")
@@ -220,6 +265,80 @@ internal object Log3DApp {
         }.onFailure { sb.append("读取失败：${it.message}\n") }
 
         return sb.toString()
+    }
+
+    /**
+     * 读取 hook 写的日志目录（Documents/Mian3D）。
+     *
+     * ============================ 为什么要 root 兜底 ============================
+     * hook 跑在主题 App 进程（com.bbk.theme 的 UID），它把日志写到
+     *   /storage/emulated/0/Documents/Mian3D/module_<进程名>.log
+     *
+     * 但本 App 是 targetSdk 35，受 scoped storage 限制，
+     * 通常【读不到】公共 Documents 下的文件（FUSE 权限按 UID 区分）。
+     *
+     * 所以策略是：
+     *   ① 先直接读（部分 ROM 放行）
+     *   ② 读不到且有 root → su -c "cat <file>" 读出来
+     *   ③ 还是不行 → 提示用户用 root 拉取
+     */
+    private fun readHookLogDir(): String {
+        val dir = File(
+            android.os.Environment.getExternalStoragePublicDirectory(
+                android.os.Environment.DIRECTORY_DOCUMENTS,
+            ),
+            "Mian3D",
+        )
+        val sb = StringBuilder()
+
+        // ① 直接读
+        val direct = readDir(dir)
+        if (!direct.contains("目录不存在") && !direct.contains("没有 .log 文件")) {
+            return direct
+        }
+
+        sb.append("（直接读取失败：").append(dir.absolutePath).append("）\n")
+
+        // ② root 兜底
+        val su = locateSu()
+        if (su == null) {
+            sb.append("（无 root，无法读取；可在文件管理器手动查看该目录）\n")
+            return sb.toString()
+        }
+
+        runCatching {
+            // 列出文件
+            val listOut = execSu(su, "ls -1 $dir 2>/dev/null")
+            val names = listOut.lines().map { it.trim() }.filter { it.endsWith(".log") }
+
+            if (names.isEmpty()) {
+                sb.append("（root 也找不到 .log 文件，目录可能为空）\n")
+                return sb.toString()
+            }
+
+            names.forEach { name ->
+                sb.append(">>> $name（root 读取）\n")
+                val content = execSu(su, "cat $dir/$name 2>/dev/null")
+                sb.append(content.takeLast(30_000)).append('\n')
+            }
+        }.onFailure {
+            sb.append("root 读取失败：${it.javaClass.simpleName} ${it.message}\n")
+        }
+
+        return sb.toString()
+    }
+
+    /** 用 su 执行一条命令，返回 stdout */
+    private fun execSu(su: String, cmd: String): String {
+        return runCatching {
+            val p = ProcessBuilder(su, "-c", cmd)
+                .redirectErrorStream(true)
+                .start()
+            p.outputStream.close()
+            val text = p.inputStream.bufferedReader().readText()
+            p.waitFor()
+            text
+        }.getOrDefault("")
     }
 
     /** 读一个目录下所有 .log，按名称排序拼接 */

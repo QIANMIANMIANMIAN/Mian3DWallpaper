@@ -386,29 +386,52 @@ private fun exportReport(context: Context) {
     Toast.makeText(context, R.string.diag_exporting, Toast.LENGTH_SHORT).show()
     Thread {
         val text = runCatching { Log3DApp.collectAll() }.getOrElse { "收集失败：$it" }
-        val dir = context.getExternalFilesDir(null) ?: context.filesDir
+
+        // ★ 必须落在 FileProvider 已声明的目录里。
+        //   之前写 getExternalFilesDir(null) 根目录，而 file_paths.xml 只声明了
+        //   logs/ 与 pulled/ → getUriForFile 抛 IllegalArgumentException → 闪退。
+        //   现在写到 external-files/logs/（file_paths.xml 里已有 ext_logs）。
+        val baseDir = context.getExternalFilesDir(null) ?: context.filesDir
+        val dir = java.io.File(baseDir, "logs").apply { mkdirs() }
         val f = java.io.File(dir, "Mian3D_diag_${System.currentTimeMillis()}.txt")
-        runCatching { f.writeText(text) }
+
+        val wrote = runCatching { f.writeText(text); f.exists() }.getOrDefault(false)
+        if (!wrote) {
+            android.os.Handler(android.os.Looper.getMainLooper()).post {
+                Toast.makeText(context, R.string.diag_export_fail, Toast.LENGTH_LONG).show()
+            }
+            return@Thread
+        }
 
         android.os.Handler(android.os.Looper.getMainLooper()).post {
-            if (!f.exists()) {
+            // ★ getUriForFile 也可能抛，全部包住，绝不让它冒到 UI 线程
+            val uri = runCatching {
+                androidx.core.content.FileProvider.getUriForFile(
+                    context,
+                    "${context.packageName}.fileprovider",
+                    f,
+                )
+            }.getOrNull()
+
+            if (uri == null) {
                 Toast.makeText(context, R.string.diag_export_fail, Toast.LENGTH_LONG).show()
                 return@post
             }
-            val uri = androidx.core.content.FileProvider.getUriForFile(
-                context,
-                "${context.packageName}.fileprovider",
-                f,
-            )
+
             val share = Intent(Intent.ACTION_SEND).apply {
                 type = "text/plain"
                 putExtra(Intent.EXTRA_STREAM, uri)
                 putExtra(Intent.EXTRA_SUBJECT, "米安3D壁纸诊断报告")
                 addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
             }
-            runCatching {
-                context.startActivity(Intent.createChooser(share, context.getString(R.string.diag_export_share)))
-            }.onFailure {
+            val ok = runCatching {
+                context.startActivity(
+                    Intent.createChooser(share, context.getString(R.string.diag_export_share)),
+                )
+                true
+            }.getOrDefault(false)
+
+            if (!ok) {
                 Toast.makeText(context, R.string.diag_export_fail, Toast.LENGTH_LONG).show()
             }
         }

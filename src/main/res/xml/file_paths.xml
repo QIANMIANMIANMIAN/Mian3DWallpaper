@@ -2,15 +2,30 @@
 <!--
   诊断报告通过 FileProvider 分享出去（不需要存储权限）。
 
-  只暴露 files/logs 与 files/pulled 两个子目录：
-    · logs   —— App 自身日志
-    · pulled —— 用 root 从受限位置拉回来的 hook 日志
-  不暴露整个 filesDir，避免误分享其它数据。
+  ★ 之前闪退的原因：导出文件写在 getExternalFilesDir(null) 根目录，
+    而这里只声明了 logs/ 与 pulled/ 两个子目录，
+    FileProvider.getUriForFile() 找不到匹配路径 → 抛 IllegalArgumentException
+    → 在 UI 线程未捕获 → 闪退。
+
+  现在补上：
+    · files-root   —— filesDir 根（兜底）
+    · ext-root     —— getExternalFilesDir(null) 根（导出报告实际落在这里）
+    · doc-mian3d   —— Documents/Mian3D（hook 侧写的日志，root 可读时用）
 -->
 <paths>
+    <!-- 内部私有目录 -->
+    <files-path name="files-root" path="." />
     <files-path name="logs" path="logs/" />
     <files-path name="pulled" path="pulled/" />
+
+    <!-- 外部私有目录（导出报告落在这里） -->
+    <external-files-path name="ext-root" path="." />
     <external-files-path name="ext_logs" path="logs/" />
     <external-files-path name="ext_pulled" path="pulled/" />
+
+    <!-- 外部共享 Documents/Mian3D（hook 日志，可能被 root 复制过来） -->
+    <external-path name="doc_mian3d" path="Documents/Mian3D/" />
+
+    <!-- 缓存目录 -->
     <cache-path name="cache" path="." />
 </paths>

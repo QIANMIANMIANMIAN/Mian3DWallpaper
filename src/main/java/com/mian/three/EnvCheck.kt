@@ -321,20 +321,32 @@ object EnvCheck {
 
         val scope = runCatching { s.scope.orEmpty() }.getOrDefault(emptyList())
 
+        // ★ 关键：scope 只是【声明】，runningTargets 才是【真的注入】
+        val targets = runCatching {
+            s.getRunningTargets().mapNotNull { it.processName }.distinct()
+        }.getOrDefault(emptyList())
+        val injected = targets.any { it.startsWith(PKG_THEME) }
+
         return when {
             scope.isEmpty() -> Item(
                 "模块作用域", Level.FAIL,
-                "作用域为空",
+                "声明作用域为空",
                 "LSPosed → 模块 → 米安3D壁纸 → 勾选「主题」",
             )
             !scope.contains(PKG_THEME) -> Item(
                 "模块作用域", Level.FAIL,
-                "作用域里没有 com.bbk.theme，当前：${scope.joinToString()}",
+                "声明作用域里没有 com.bbk.theme\n当前：${scope.joinToString()}",
                 "LSPosed → 模块 → 米安3D壁纸 → 勾选「主题」→ 强行停止主题 App 重开",
             )
+            !injected -> Item(
+                "模块注入", Level.FAIL,
+                "作用域已声明，但主题进程还没被注入。\n" +
+                    "当前已注入的进程：${if (targets.isEmpty()) "（无）" else targets.joinToString()}",
+                "设置 → 应用 → 主题 → 强行停止 → 重新打开",
+            )
             else -> Item(
-                "模块作用域", Level.OK,
-                "包含 com.bbk.theme（共 ${scope.size} 项）",
+                "模块注入", Level.OK,
+                "✅ 主题进程已注入（作用域 ${scope.size} 项，已注入 ${targets.size} 个进程）",
             )
         }
     }
