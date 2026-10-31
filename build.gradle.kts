@@ -9,6 +9,26 @@ plugins {
     alias(libs.plugins.lsplugin.apksign)
 }
 
+// ==================== 全局配置 ====================
+// ★ targetSdk 必须与 douyin-liquid-glass-lite 一致（35），不能是 37。
+//   原因：Android 的 seapp_contexts 按 targetSdk 给 App 分配不同的 SELinux 域，
+//   越高越严；KernelSU/Magisk 的 su 策略只覆盖到它编译时对齐的 SDK 级别。
+//   targetSdk=37 会落到未覆盖的新域 -> 执行 su 报 EACCES(13)。
+extra["androidMinSdkVersion"] = 28
+extra["androidTargetSdkVersion"] = 35
+extra["androidCompileSdkVersion"] = 37
+extra["androidCompileSdkVersionMinor"] = 0
+extra["androidBuildToolsVersion"] = "37.0.0"
+extra["androidSourceCompatibility"] = JavaVersion.VERSION_17
+extra["androidTargetCompatibility"] = JavaVersion.VERSION_17
+
+// 版本号统一在 version.properties 维护
+val versionProps = java.util.Properties().apply {
+    rootProject.file("version.properties").inputStream().use { load(it) }
+}
+extra["threeVersionCode"] = versionProps.getProperty("versionCode", "1").toInt()
+extra["threeVersionName"] = versionProps.getProperty("versionName", "1.0.0")
+
 val androidCompileSdkVersion = rootProject.extra["androidCompileSdkVersion"] as Int
 val androidCompileSdkVersionMinor = rootProject.extra["androidCompileSdkVersionMinor"] as Int
 val androidBuildToolsVersion = rootProject.extra["androidBuildToolsVersion"] as String
