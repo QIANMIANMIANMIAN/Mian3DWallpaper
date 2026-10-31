@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  诊断报告通过 FileProvider 分享出去（不需要存储权限）。
+
+  只暴露 files/logs 与 files/pulled 两个子目录：
+    · logs   —— App 自身日志
+    · pulled —— 用 root 从受限位置拉回来的 hook 日志
+  不暴露整个 filesDir，避免误分享其它数据。
+-->
+<paths>
+    <files-path name="logs" path="logs/" />
+    <files-path name="pulled" path="pulled/" />
+    <external-files-path name="ext_logs" path="logs/" />
+    <external-files-path name="ext_pulled" path="pulled/" />
+    <cache-path name="cache" path="." />
+</paths>

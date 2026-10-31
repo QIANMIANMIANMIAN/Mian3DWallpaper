@@ -1,0 +1,43 @@
+<resources>
+    <string name="app_name">米安3D壁纸</string>
+
+    <string name="group_title">3D 空间壁纸</string>
+    <string name="group_caption">让 vivo 主题 App 显示并启用 3D 壁纸入口。</string>
+    <string name="enable_title">解锁 3D 壁纸</string>
+    <string name="enable_summary">强制主题 App 内的五处能力判断通过。渲染引擎（libThemeProcess.so + VAGPlayer）本就内置在主题 App 里，无需额外安装。</string>
+
+    <string name="usage_title">使用步骤</string>
+    <string name="usage_body">1. 在 LSPosed 里启用本模块，并勾选「主题」作用域。\n2. 打开上方开关。\n3. 强行停止主题 App，再重新打开。\n4. 进入锁屏壁纸编辑，3D 入口就会出现。\n\n若仍无入口，查看 /storage/emulated/0/Android/media/com.mian.three/module.log，确认是哪一层判断被放行。</string>
+
+    <string name="about_title">关于</string>
+    <string name="about_body">从米安助手拆分出来的独立模块。只解锁主题 App 自带的 3D 壁纸能力，自身不提供任何渲染实现。</string>
+    <string name="about_author">关于作者</string>
+    <string name="about_version_fmt">米安3D壁纸 v%1$s</string>
+    <string name="about_author_fail">没有可用的应用打开该链接</string>
+    <string name="enable_summary_local">（LSPosed 未连接 —— 开关暂时只保存到本地。请在 LSPosed 启用本模块并勾选「主题」作用域后再切换一次。）</string>
+    <string name="diag_title">运行日志</string>
+    <string name="diag_caption">由跑在主题 App 进程里的 hook 写入。若为空，说明模块根本没被注入。</string>
+    <string name="diag_refresh">刷新</string>
+    <string name="diag_empty">（空 —— hook 没跑。请确认 LSPosed 里勾选了「主题」作用域，然后强行停止并重开主题 App）</string>
+    <string name="scope_title">LSPosed 状态</string>
+    <string name="scope_loading">读取中…</string>
+    <string name="check_title">环境检测</string>
+    <string name="check_caption">逐项检查 3D 壁纸的全部前提条件。标 ❌ 的必须先解决。</string>
+    <string name="check_refresh">重新检测</string>
+    <string name="check_loading">检测中…</string>
+    <string name="check_all_ok">✅ 全部条件满足</string>
+    <string name="check_has_fail">❌ 有项目不满足，请看下面的详情</string>
+    <string name="diag_export">导出诊断报告</string>
+    <string name="diag_exporting">正在收集…</string>
+    <string name="diag_export_fail">导出失败</string>
+    <string name="diag_export_share">分享诊断报告</string>
+    <string name="diag_pull_root">用 root 拉取日志</string>
+    <string name="diag_pull_ok">已复制 %1$d 个日志目录</string>
+    <string name="diag_pull_fail">没有复制到任何日志</string>
+    <string name="feature_group_title">其它锁屏特效</string>
+    <string name="feature_group_caption">解锁主题 App 里的额外特效入口。实际渲染仍需对应的主题包。</string>
+    <string name="feature_aipet_title">解锁 AI 宠物</string>
+    <string name="feature_aipet_summary">绕过内存（>6GB）、机型白名单与 AOD 元数据三道判断。云端生成仍需 vivo 账号。</string>
+    <string name="feature_depth_title">强制景深效果</string>
+    <string name="feature_depth_summary">让「装饰/景深」开关保持可用。壁纸模板本身需带深度数据。</string>
+</resources>

@@ -1,0 +1,149 @@
+name: Build APK
+
+on:
+  push:
+    branches: ["main"]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: write   # 需要创建/更新 Release
+
+env:
+  USE_SECRET_KS: ${{ secrets.KEYSTORE_B64 != '' }}
+
+jobs:
+  build:
+    name: assembleRelease
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      # compileSdk 37.0 + build-tools 37.0.0（SDK 包名是 android-37.0 而非 android-37）
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+        with:
+          packages: "platform-tools build-tools;37.0.0 platforms;android-37.0"
+          log-accepted-android-sdk-licenses: false
+
+      - name: Strip host-sandbox-only gradle settings
+        run: |
+          sed -i '/android\.aapt2FromMavenOverride/d' gradle.properties
+          sed -i '/org\.gradle\.java\.home/d' gradle.properties
+          echo "sdk.dir=${ANDROID_HOME}" > local.properties
+          echo "== gradle.properties =="; cat gradle.properties
+
+      - name: Restore CI keystore (cache)
+        id: ks-cache
+        uses: actions/cache/restore@v4
+        with:
+          path: .ci-keystore/release.keystore
+          key: mian3d-keystore-v1
+          restore-keys: mian3d-keystore-v1
+
+      - name: Prepare signing keystore
+        run: |
+          mkdir -p .ci-keystore
+          if [ "$USE_SECRET_KS" = "true" ]; then
+            echo "[sign] 使用仓库 Secrets 提供的正式 keystore"
+            printf '%s' "${{ secrets.KEYSTORE_B64 }}" | base64 -d > .ci-keystore/release.keystore
+            {
+              echo "KS_PASS=${{ secrets.KEYSTORE_PASSWORD }}"
+              echo "KS_ALIAS=${{ secrets.KEY_ALIAS }}"
+              echo "KS_KEYPASS=${{ secrets.KEY_PASSWORD }}"
+            } >> "$GITHUB_ENV"
+          else
+            if [ ! -s .ci-keystore/release.keystore ]; then
+              echo "[sign] 生成 CI 测试 keystore（首次生成后由 cache 复用）"
+              keytool -genkeypair -v \
+                -keystore .ci-keystore/release.keystore \
+                -alias mian3d-ci -keyalg RSA -keysize 2048 -validity 10000 \
+                -storepass mian3d-ci-pass -keypass mian3d-ci-pass \
+                -dname "CN=Mian3DWallpaper CI, OU=CI, O=CI, L=NA, ST=NA, C=CN"
+            else
+              echo "[sign] 复用 cache 中的 CI keystore"
+            fi
+            echo "KS_PASS=mian3d-ci-pass" >> "$GITHUB_ENV"
+            echo "KS_ALIAS=mian3d-ci" >> "$GITHUB_ENV"
+            echo "KS_KEYPASS=mian3d-ci-pass" >> "$GITHUB_ENV"
+          fi
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: wrapper
+          cache-read-only: false
+
+      - name: Assemble release
+        run: |
+          chmod +x gradlew
+          ./gradlew assembleRelease \
+            -PKEYSTORE_FILE="${GITHUB_WORKSPACE}/.ci-keystore/release.keystore" \
+            -PKEYSTORE_PASSWORD="$KS_PASS" \
+            -PKEY_ALIAS="$KS_ALIAS" \
+            -PKEY_PASSWORD="$KS_KEYPASS" \
+            --stacktrace
+
+      - name: Collect APK + signing info
+        run: |
+          mkdir -p out
+          find build/outputs/apk -name "*.apk" -exec cp -v {} out/ \;
+          echo "== artifacts =="; ls -la out
+          BT=$(ls -d ${ANDROID_HOME}/build-tools/37.0.0 2>/dev/null || echo "${ANDROID_HOME}/build-tools/37.0.0")
+          for f in out/*.apk; do
+            echo
+            echo "### $f"
+            "$BT/apksigner" verify --print-certs "$f" 2>&1 | head -12 || true
+            "$BT/aapt2" dump badging "$f" 2>/dev/null | head -5 || true
+          done
+
+      - name: Upload APK (artifact，可选)
+        continue-on-error: true
+        uses: actions/upload-artifact@v4
+        with:
+          name: Mian3DWallpaper-${{ github.sha }}
+          path: out/*.apk
+          if-no-files-found: error
+
+      - name: Publish to Release（主分发渠道）
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TAG=nightly
+          VER=$(grep -oP '^versionName=\K.*' version.properties)
+          VC=$(grep -oP '^versionCode=\K.*' version.properties)
+          NOTES="构建自 \`$(git rev-parse --short HEAD)\`（$(git log -1 --pretty=%s)）
+米安3D壁纸 $VER ($VC)"
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            for a in $(gh release view "$TAG" --json assets --jq '.assets[].name'); do
+              echo "  删除旧附件: $a"
+              gh release delete-asset "$TAG" "$a" -y || true
+            done
+            gh release upload "$TAG" out/*.apk --clobber
+            gh release edit "$TAG" --notes "$NOTES"
+          else
+            gh release create "$TAG" out/*.apk --prerelease \
+              --title "米安3D壁纸 夜间构建" --notes "$NOTES"
+          fi
+          echo "== Release 已更新 =="
+          gh release view "$TAG" --json tagName,assets --jq '.assets[] | .name + "  " + (.size|tostring) + " bytes"'
+
+      - name: Save CI keystore to cache
+        if: env.USE_SECRET_KS == 'false' && steps.ks-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: .ci-keystore/release.keystore
+          key: mian3d-keystore-v1

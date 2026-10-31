@@ -1,0 +1,43 @@
+<resources>
+    <string name="app_name">Mian 3D Wallpaper</string>
+
+    <string name="group_title">3D spatial wallpaper</string>
+    <string name="group_caption">Reveal and enable the 3D wallpaper entry in the vivo theme app.</string>
+    <string name="enable_title">Unlock 3D wallpaper</string>
+    <string name="enable_summary">Forces five capability checks in the theme app to pass. The renderer (libThemeProcess.so + VAGPlayer) already ships inside the theme app, so nothing else is needed.</string>
+
+    <string name="usage_title">How to use</string>
+    <string name="usage_body">1. Enable this module in LSPosed and tick the "Theme" scope.\n2. Turn on the switch above.\n3. Force-stop the theme app, then open it again.\n4. Go to lock-screen wallpaper editing — the 3D entry should now appear.\n\nIf the entry is still missing, check /storage/emulated/0/Android/media/com.mian.three/module.log for which check was bypassed.</string>
+
+    <string name="about_title">About</string>
+    <string name="about_body">Standalone module extracted from MianAssistant. Only unlocks the theme app\'s built-in 3D wallpaper capability; it does not add any renderer of its own.</string>
+    <string name="about_author">About the author</string>
+    <string name="about_version_fmt">Mian 3D Wallpaper v%1$s</string>
+    <string name="about_author_fail">No app available to open the link</string>
+    <string name="enable_summary_local">(LSPosed not connected yet — the switch is saved locally. Enable the module and tick the \"Theme\" scope, then toggle again.)</string>
+    <string name="diag_title">Runtime log</string>
+    <string name="diag_caption">Written by the hook inside the theme app process. If it is empty, the module was never injected.</string>
+    <string name="diag_refresh">Refresh</string>
+    <string name="diag_empty">(empty — hook did not run, check that the \"Theme\" scope is enabled in LSPosed, then force-stop and reopen the theme app)</string>
+    <string name="scope_title">LSPosed status</string>
+    <string name="scope_loading">Reading…</string>
+    <string name="check_title">Environment check</string>
+    <string name="check_caption">Verifies every prerequisite for 3D wallpaper. Fix anything marked ❌.</string>
+    <string name="check_refresh">Re-check</string>
+    <string name="check_loading">Checking…</string>
+    <string name="check_all_ok">✅ All prerequisites satisfied</string>
+    <string name="check_has_fail">❌ Some prerequisites failed — see details below</string>
+    <string name="diag_export">Export diagnostic report</string>
+    <string name="diag_exporting">Collecting…</string>
+    <string name="diag_export_fail">Export failed</string>
+    <string name="diag_export_share">Share report</string>
+    <string name="diag_pull_root">Pull logs via root</string>
+    <string name="diag_pull_ok">Copied %1$d log folder(s)</string>
+    <string name="diag_pull_fail">Nothing copied</string>
+    <string name="feature_group_title">Other lock screen effects</string>
+    <string name="feature_group_caption">Unlock additional effect entries in the theme app. Requires the matching theme packs to actually render.</string>
+    <string name="feature_aipet_title">Unlock AI Pet</string>
+    <string name="feature_aipet_summary">Bypasses the RAM (>6GB), model whitelist and AOD metadata checks. Cloud generation still requires a vivo account.</string>
+    <string name="feature_depth_title">Force depth effect</string>
+    <string name="feature_depth_summary">Lets the decoration/depth switch stay enabled. The wallpaper template must contain depth data.</string>
+</resources>
