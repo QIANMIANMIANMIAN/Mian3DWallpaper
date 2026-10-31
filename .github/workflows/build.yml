@@ -1,17 +1,18 @@
 name: Build APK
 
 on:
-  push:
-    branches: ["main"]
-  pull_request:
   workflow_dispatch:
+  push:
+    branches:
+      - main
+  pull_request:
 
 concurrency:
   group: build-${{ github.ref }}
   cancel-in-progress: true
 
 permissions:
-  contents: write   # 需要创建/更新 Release
+  contents: write
 
 env:
   USE_SECRET_KS: ${{ secrets.KEYSTORE_B64 != '' }}
@@ -32,7 +33,6 @@ jobs:
           distribution: temurin
           java-version: "21"
 
-      # compileSdk 37.0 + build-tools 37.0.0（SDK 包名是 android-37.0 而非 android-37）
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
         with:
@@ -44,7 +44,6 @@ jobs:
           sed -i '/android\.aapt2FromMavenOverride/d' gradle.properties
           sed -i '/org\.gradle\.java\.home/d' gradle.properties
           echo "sdk.dir=${ANDROID_HOME}" > local.properties
-          echo "== gradle.properties =="; cat gradle.properties
 
       - name: Restore CI keystore (cache)
         id: ks-cache
@@ -67,7 +66,7 @@ jobs:
             } >> "$GITHUB_ENV"
           else
             if [ ! -s .ci-keystore/release.keystore ]; then
-              echo "[sign] 生成 CI 测试 keystore（首次生成后由 cache 复用）"
+              echo "[sign] 生成 CI 测试 keystore"
               keytool -genkeypair -v \
                 -keystore .ci-keystore/release.keystore \
                 -alias mian3d-ci -keyalg RSA -keysize 2048 -validity 10000 \
@@ -97,20 +96,13 @@ jobs:
             -PKEY_PASSWORD="$KS_KEYPASS" \
             --stacktrace
 
-      - name: Collect APK + signing info
+      - name: Collect APK
         run: |
           mkdir -p out
           find build/outputs/apk -name "*.apk" -exec cp -v {} out/ \;
           echo "== artifacts =="; ls -la out
-          BT=$(ls -d ${ANDROID_HOME}/build-tools/37.0.0 2>/dev/null || echo "${ANDROID_HOME}/build-tools/37.0.0")
-          for f in out/*.apk; do
-            echo
-            echo "### $f"
-            "$BT/apksigner" verify --print-certs "$f" 2>&1 | head -12 || true
-            "$BT/aapt2" dump badging "$f" 2>/dev/null | head -5 || true
-          done
 
-      - name: Upload APK (artifact，可选)
+      - name: Upload APK (artifact)
         continue-on-error: true
         uses: actions/upload-artifact@v4
         with:
@@ -118,15 +110,15 @@ jobs:
           path: out/*.apk
           if-no-files-found: error
 
-      - name: Publish to Release（主分发渠道）
+      - name: Publish to Release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           TAG=nightly
           VER=$(grep -oP '^versionName=\K.*' version.properties)
           VC=$(grep -oP '^versionCode=\K.*' version.properties)
-          NOTES="构建自 \`$(git rev-parse --short HEAD)\`（$(git log -1 --pretty=%s)）
-米安3D壁纸 $VER ($VC)"
+          NOTES="构建自 ${GITHUB_SHA:0:7}
+          米安3D壁纸 $VER ($VC)"
           if gh release view "$TAG" >/dev/null 2>&1; then
             for a in $(gh release view "$TAG" --json assets --jq '.assets[].name'); do
               echo "  删除旧附件: $a"
@@ -139,7 +131,6 @@ jobs:
               --title "米安3D壁纸 夜间构建" --notes "$NOTES"
           fi
           echo "== Release 已更新 =="
-          gh release view "$TAG" --json tagName,assets --jq '.assets[] | .name + "  " + (.size|tostring) + " bytes"'
 
       - name: Save CI keystore to cache
         if: env.USE_SECRET_KS == 'false' && steps.ks-cache.outputs.cache-hit != 'true'
