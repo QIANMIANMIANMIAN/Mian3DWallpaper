@@ -29,6 +29,12 @@ class ThreeHookEntry : XposedModule() {
         /** 景深：是否屏蔽「遮挡过多」弹窗 */
         const val KEY_FEATURE_DEPTH_MUTE = "mk_feature_depth_mute"
 
+        /** 解锁全部壁纸特效（闪卡/解压/液态/光栅等） */
+        const val KEY_FEATURE_EFFECTS = "mk_feature_effects"
+
+        /** 特效解锁：是否输出诊断日志 */
+        const val KEY_FEATURE_EFFECTS_DIAG = "mk_feature_effects_diag"
+
 
         @Volatile
         var debugLoggingEnabled: Boolean = false
@@ -72,6 +78,7 @@ class ThreeHookEntry : XposedModule() {
             Three3DHooker.syncFromPrefs(p)
             ThreeFeatureHooker.syncFromPrefs(p)
             ThreeDepthHooker.syncFromPrefs(p)
+            ThreeEffectUnlockHooker.syncFromPrefs(p)
             installPrefsListener()
         }.onFailure { Log3D.w("同步配置失败: ${it.javaClass.simpleName} ${it.message}") }
 
@@ -96,6 +103,13 @@ class ThreeHookEntry : XposedModule() {
                 ThreeDepthHooker.install(this, param.defaultClassLoader, param.packageName)
             }.onFailure {
                 Log3D.e("ThreeDepthHooker.install 抛异常: ${it.javaClass.name} ${it.message}")
+            }
+
+            // 解锁全部壁纸特效（闪卡/解压/液态/光栅…）
+            runCatching {
+                ThreeEffectUnlockHooker.install(this, param.defaultClassLoader, param.packageName)
+            }.onFailure {
+                Log3D.e("ThreeEffectUnlockHooker.install 抛异常: ${it.javaClass.name} ${it.message}")
             }
         } else {
             Log3D.i("非目标包，跳过 hook 安装")

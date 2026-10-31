@@ -42,4 +42,8 @@
     <string name="feature_depth_summary">Lets the decoration/depth switch stay enabled. The wallpaper template must contain depth data.</string>
     <string name="feature_depth_mute_title">Silence \"too much occlusion\" popup</string>
     <string name="feature_depth_mute_summary">The theme app pops up a warning when the clock covers too much of the subject. Enable to hide that dialog.</string>
+    <string name="feature_effects_title">Unlock all wallpaper effects</string>
+    <string name="feature_effects_summary">Bypasses the template-type thresholds (customSubType >= 1001/2001) and plugin-render checks, so flash card / decompress / grating / liquid style templates are no longer filtered out.</string>
+    <string name="feature_effects_diag_title">Log effect diagnostics</string>
+    <string name="feature_effects_diag_summary">Prints the actual subType / customSubType / previewType of each wallpaper to the runtime log, useful to confirm what your theme pack really is.</string>
 </resources>

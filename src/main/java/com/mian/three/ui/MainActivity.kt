@@ -116,6 +116,19 @@ private fun Page() {
             }.getOrDefault(true),
         )
     }
+    var effectsOn by remember {
+        mutableStateOf(
+            runCatching { prefs.getBoolean(ThreeHookEntry.KEY_FEATURE_EFFECTS, false) }
+                .getOrDefault(false),
+        )
+    }
+    var effectsDiagOn by remember {
+        mutableStateOf(
+            runCatching {
+                prefs.getBoolean(ThreeHookEntry.KEY_FEATURE_EFFECTS_DIAG, true)
+            }.getOrDefault(true),
+        )
+    }
 
     var report by remember { mutableStateOf<EnvCheck.Report?>(null) }
     var diag by remember { mutableStateOf("") }
@@ -205,6 +218,29 @@ private fun Page() {
                 depthMuteOn = v
                 runCatching {
                     prefs.edit().putBoolean(ThreeHookEntry.KEY_FEATURE_DEPTH_MUTE, v).commit()
+                }
+            },
+        )
+        SwitchPreference(
+            title = stringResource(R.string.feature_effects_title),
+            summary = stringResource(R.string.feature_effects_summary),
+            checked = effectsOn,
+            onCheckedChange = { v ->
+                effectsOn = v
+                runCatching {
+                    prefs.edit().putBoolean(ThreeHookEntry.KEY_FEATURE_EFFECTS, v).commit()
+                }
+            },
+        )
+        SwitchPreference(
+            title = stringResource(R.string.feature_effects_diag_title),
+            summary = stringResource(R.string.feature_effects_diag_summary),
+            checked = effectsDiagOn,
+            onCheckedChange = { v ->
+                effectsDiagOn = v
+                runCatching {
+                    prefs.edit()
+                        .putBoolean(ThreeHookEntry.KEY_FEATURE_EFFECTS_DIAG, v).commit()
                 }
             },
         )

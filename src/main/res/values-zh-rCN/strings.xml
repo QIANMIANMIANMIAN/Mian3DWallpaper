@@ -42,4 +42,8 @@
     <string name="feature_depth_summary">让「装饰/景深」开关保持可用。壁纸模板本身需带深度数据。</string>
     <string name="feature_depth_mute_title">屏蔽「遮挡过多」弹窗</string>
     <string name="feature_depth_mute_summary">时钟遮挡主体过多时主题 App 会弹提示。打开后不再弹出。</string>
+    <string name="feature_effects_title">解锁全部壁纸特效</string>
+    <string name="feature_effects_summary">绕过模板类型阈值（customSubType >= 1001/2001）与插件化渲染判断，让闪卡 / 解压 / 光栅 / 液态等模板不再被过滤。</string>
+    <string name="feature_effects_diag_title">输出特效诊断日志</string>
+    <string name="feature_effects_diag_summary">把每个壁纸实际的 subType / customSubType / previewType 打到运行日志，用于确认你的主题包到底是什么类型。</string>
 </resources>
