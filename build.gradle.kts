@@ -2,6 +2,7 @@
 
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
+import java.util.Properties
 
 plugins {
     alias(libs.plugins.agp.app)
@@ -23,8 +24,10 @@ extra["androidSourceCompatibility"] = JavaVersion.VERSION_17
 extra["androidTargetCompatibility"] = JavaVersion.VERSION_17
 
 // 版本号统一在 version.properties 维护
-val versionProps = java.util.Properties().apply {
-    rootProject.file("version.properties").inputStream().use { load(it) }
+val versionProps = Properties().apply {
+    rootProject.file("version.properties").inputStream().use { input ->
+        load(input)
+    }
 }
 extra["threeVersionCode"] = versionProps.getProperty("versionCode", "1").toInt()
 extra["threeVersionName"] = versionProps.getProperty("versionName", "1.0.0")
