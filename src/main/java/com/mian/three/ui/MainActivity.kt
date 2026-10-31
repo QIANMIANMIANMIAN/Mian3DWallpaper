@@ -32,6 +32,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.mian.three.BuildConfig
 import com.mian.three.EnvCheck
+import com.mian.three.data.ConfigBridge
 import com.mian.three.Log3DApp
 import com.mian.three.R
 import com.mian.three.XposedState3D
@@ -162,7 +163,7 @@ private fun Page() {
             onCheckedChange = { v ->
                 enabled = v
                 runCatching {
-                    writePrefs(context).edit().putBoolean(ThreeHookEntry.KEY_3D_ENABLE, v).commit()
+                    saveBool(context, ThreeHookEntry.KEY_3D_ENABLE, v)
                 }.onFailure {
                     Toast.makeText(context, "保存失败：${it.javaClass.simpleName}", Toast.LENGTH_SHORT).show()
                 }
@@ -192,7 +193,7 @@ private fun Page() {
             onCheckedChange = { v ->
                 aiPetOn = v
                 runCatching {
-                    writePrefs(context).edit().putBoolean(ThreeHookEntry.KEY_FEATURE_AIPET, v).commit()
+                    saveBool(context, ThreeHookEntry.KEY_FEATURE_AIPET, v)
                 }
             },
         )
@@ -203,7 +204,7 @@ private fun Page() {
             onCheckedChange = { v ->
                 depthOn = v
                 runCatching {
-                    writePrefs(context).edit().putBoolean(ThreeHookEntry.KEY_FEATURE_DEPTH, v).commit()
+                    saveBool(context, ThreeHookEntry.KEY_FEATURE_DEPTH, v)
                 }
             },
         )
@@ -214,7 +215,7 @@ private fun Page() {
             onCheckedChange = { v ->
                 depthMuteOn = v
                 runCatching {
-                    writePrefs(context).edit().putBoolean(ThreeHookEntry.KEY_FEATURE_DEPTH_MUTE, v).commit()
+                    saveBool(context, ThreeHookEntry.KEY_FEATURE_DEPTH_MUTE, v)
                 }
             },
         )
@@ -225,7 +226,7 @@ private fun Page() {
             onCheckedChange = { v ->
                 effectsOn = v
                 runCatching {
-                    writePrefs(context).edit().putBoolean(ThreeHookEntry.KEY_FEATURE_EFFECTS, v).commit()
+                    saveBool(context, ThreeHookEntry.KEY_FEATURE_EFFECTS, v)
                 }
             },
         )
@@ -236,8 +237,7 @@ private fun Page() {
             onCheckedChange = { v ->
                 effectsDiagOn = v
                 runCatching {
-                    writePrefs(context).edit()
-                        .putBoolean(ThreeHookEntry.KEY_FEATURE_EFFECTS_DIAG, v).commit()
+                    saveBool(context, ThreeHookEntry.KEY_FEATURE_EFFECTS_DIAG, v)
                 }
             },
         )
@@ -511,3 +511,30 @@ private fun readInt(context: Context, key: String, def: Int): Int = runCatching 
  */
 private fun writePrefs(context: Context): SharedPreferences =
     XposedState3D.prefs(context)
+
+/**
+ * 保存一个开关。
+ *
+ * ★ 双写策略（这是本次"开关不生效"的最终修复）：
+ *   ① 写 remote prefs —— 给支持跨进程同步的框架版本用
+ *   ② 写配置文件 /storage/emulated/0/Android/media/com.mian.three/config.txt
+ *      —— hook 侧直接读文件，绕开 remote prefs 的传播不确定性
+ *
+ *   实测 remote prefs 在不同 key 上可见性不一致（aiPet/depth 能读，
+ *   effects 读不到），所以文件是主渠道，prefs 是兼容备份。
+ */
+private fun saveBool(context: Context, key: String, value: Boolean) {
+    // ① prefs（可能失败，不阻断）
+    runCatching {
+        XposedState3D.prefs(context).edit().putBoolean(key, value).commit()
+    }
+
+    // ② 配置文件：读现状 → 改一项 → 整体写回
+    runCatching {
+        val cur = ConfigBridge.read().toMutableMap()
+        cur[key] = value.toString()
+        val map = cur.filterKeys { it != "ts" }
+            .mapValues { it.value.equals("true", ignoreCase = true) }
+        ConfigBridge.write(context, map)
+    }
+}

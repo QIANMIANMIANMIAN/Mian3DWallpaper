@@ -270,18 +270,26 @@ internal object Three3DHooker {
 
     // ==================== 配置 ====================
 
-    /** 读取开关状态（module 侧 remote prefs） */
-    fun syncFromPrefs(prefs: SharedPreferences?) {
-        // ★ 拿不到 remote prefs 时【不改】enabled，
-        //   让它保持初始值 true（UI 默认也是开），
-        //   否则会变成「UI 显示已开、hook 侧却是关」的静默失效。
-        if (prefs == null) {
-            Log3D.w("$TAG: remote prefs 不可用，保持当前 enabled=$enabled")
+    /**
+     * 读取开关状态。
+     *
+     * ★ 优先用 fileBool（配置文件），remote prefs 只作兜底。
+     *   原因见 ThreeHookEntry 里的说明：remote prefs 在不同 key 上
+     *   可见性不一致，文件方案更可靠。
+     */
+    fun syncFromPrefs(
+        prefs: SharedPreferences?,
+        fileBool: ((String, Boolean) -> Boolean)? = null,
+    ) {
+        if (prefs == null && fileBool == null) {
+            Log3D.w("$TAG: 没有任何配置来源，保持当前 enabled=$enabled")
             return
         }
         runCatching {
             val old = enabled
-            enabled = prefs.getBoolean(ThreeHookEntry.KEY_3D_ENABLE, true)
+            enabled = fileBool?.invoke(ThreeHookEntry.KEY_3D_ENABLE, true)
+                ?: prefs?.getBoolean(ThreeHookEntry.KEY_3D_ENABLE, true)
+                ?: true
             if (old != enabled) {
                 Log3D.i("$TAG: 开关 $old -> $enabled")
                 if (!enabled) {

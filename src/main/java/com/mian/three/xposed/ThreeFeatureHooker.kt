@@ -165,11 +165,16 @@ internal object ThreeFeatureHooker {
 
     // ==================== 配置 ====================
 
-    fun syncFromPrefs(prefs: SharedPreferences?) {
-        if (prefs == null) return
+    fun syncFromPrefs(
+        prefs: SharedPreferences?,
+        fileBool: ((String, Boolean) -> Boolean)? = null,
+    ) {
         runCatching {
-            enabledAiPet = prefs.getBoolean(ThreeHookEntry.KEY_FEATURE_AIPET, false)
-            enabledDepth = prefs.getBoolean(ThreeHookEntry.KEY_FEATURE_DEPTH, false)
+            fun bool(key: String, def: Boolean): Boolean =
+                fileBool?.invoke(key, def) ?: prefs?.getBoolean(key, def) ?: def
+
+            enabledAiPet = bool(ThreeHookEntry.KEY_FEATURE_AIPET, false)
+            enabledDepth = bool(ThreeHookEntry.KEY_FEATURE_DEPTH, false)
             Log3D.i("$TAG: 配置 aiPet=$enabledAiPet depth=$enabledDepth")
         }.onFailure {
             Log3D.w("$TAG: 读取配置失败: ${it.message}")

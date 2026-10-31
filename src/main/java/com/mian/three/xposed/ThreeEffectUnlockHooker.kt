@@ -298,11 +298,16 @@ internal object ThreeEffectUnlockHooker {
 
     // ==================== 配置 ====================
 
-    fun syncFromPrefs(prefs: SharedPreferences?) {
-        if (prefs == null) return
+    fun syncFromPrefs(
+        prefs: SharedPreferences?,
+        fileBool: ((String, Boolean) -> Boolean)? = null,
+    ) {
         runCatching {
-            enabled = prefs.getBoolean(ThreeHookEntry.KEY_FEATURE_EFFECTS, false)
-            diag = prefs.getBoolean(ThreeHookEntry.KEY_FEATURE_EFFECTS_DIAG, true)
+            fun bool(key: String, def: Boolean): Boolean =
+                fileBool?.invoke(key, def) ?: prefs?.getBoolean(key, def) ?: def
+
+            enabled = bool(ThreeHookEntry.KEY_FEATURE_EFFECTS, false)
+            diag = bool(ThreeHookEntry.KEY_FEATURE_EFFECTS_DIAG, true)
             Log3D.i("$TAG: 配置 enabled=$enabled diag=$diag")
         }.onFailure {
             Log3D.w("$TAG: 读取配置失败: ${it.message}")
