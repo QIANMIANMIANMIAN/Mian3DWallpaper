@@ -109,6 +109,13 @@ private fun Page() {
                 .getOrDefault(false),
         )
     }
+    var depthMuteOn by remember {
+        mutableStateOf(
+            runCatching {
+                prefs.getBoolean(ThreeHookEntry.KEY_FEATURE_DEPTH_MUTE, true)
+            }.getOrDefault(true),
+        )
+    }
 
     var report by remember { mutableStateOf<EnvCheck.Report?>(null) }
     var diag by remember { mutableStateOf("") }
@@ -187,6 +194,17 @@ private fun Page() {
                 depthOn = v
                 runCatching {
                     prefs.edit().putBoolean(ThreeHookEntry.KEY_FEATURE_DEPTH, v).commit()
+                }
+            },
+        )
+        SwitchPreference(
+            title = stringResource(R.string.feature_depth_mute_title),
+            summary = stringResource(R.string.feature_depth_mute_summary),
+            checked = depthMuteOn,
+            onCheckedChange = { v ->
+                depthMuteOn = v
+                runCatching {
+                    prefs.edit().putBoolean(ThreeHookEntry.KEY_FEATURE_DEPTH_MUTE, v).commit()
                 }
             },
         )

@@ -40,4 +40,6 @@
     <string name="feature_aipet_summary">绕过内存（>6GB）、机型白名单与 AOD 元数据三道判断。云端生成仍需 vivo 账号。</string>
     <string name="feature_depth_title">强制景深效果</string>
     <string name="feature_depth_summary">让「装饰/景深」开关保持可用。壁纸模板本身需带深度数据。</string>
+    <string name="feature_depth_mute_title">屏蔽「遮挡过多」弹窗</string>
+    <string name="feature_depth_mute_summary">时钟遮挡主体过多时主题 App 会弹提示。打开后不再弹出。</string>
 </resources>

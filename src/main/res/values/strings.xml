@@ -40,4 +40,6 @@
     <string name="feature_aipet_summary">Bypasses the RAM (>6GB), model whitelist and AOD metadata checks. Cloud generation still requires a vivo account.</string>
     <string name="feature_depth_title">Force depth effect</string>
     <string name="feature_depth_summary">Lets the decoration/depth switch stay enabled. The wallpaper template must contain depth data.</string>
+    <string name="feature_depth_mute_title">Silence \"too much occlusion\" popup</string>
+    <string name="feature_depth_mute_summary">The theme app pops up a warning when the clock covers too much of the subject. Enable to hide that dialog.</string>
 </resources>

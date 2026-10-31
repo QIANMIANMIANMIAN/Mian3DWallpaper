@@ -26,6 +26,9 @@ class ThreeHookEntry : XposedModule() {
         /** 景深解锁 */
         const val KEY_FEATURE_DEPTH = "mk_feature_depth"
 
+        /** 景深：是否屏蔽「遮挡过多」弹窗 */
+        const val KEY_FEATURE_DEPTH_MUTE = "mk_feature_depth_mute"
+
 
         @Volatile
         var debugLoggingEnabled: Boolean = false
@@ -68,6 +71,7 @@ class ThreeHookEntry : XposedModule() {
             Log3D.i("remote prefs 可用 = ${p != null}")
             Three3DHooker.syncFromPrefs(p)
             ThreeFeatureHooker.syncFromPrefs(p)
+            ThreeDepthHooker.syncFromPrefs(p)
             installPrefsListener()
         }.onFailure { Log3D.w("同步配置失败: ${it.javaClass.simpleName} ${it.message}") }
 
@@ -85,6 +89,13 @@ class ThreeHookEntry : XposedModule() {
                 ThreeFeatureHooker.install(this, param.defaultClassLoader, param.packageName)
             }.onFailure {
                 Log3D.e("ThreeFeatureHooker.install 抛异常: ${it.javaClass.name} ${it.message}")
+            }
+
+            // 强制景深（解除「遮挡过多」置灰 + 拦截弹窗）
+            runCatching {
+                ThreeDepthHooker.install(this, param.defaultClassLoader, param.packageName)
+            }.onFailure {
+                Log3D.e("ThreeDepthHooker.install 抛异常: ${it.javaClass.name} ${it.message}")
             }
         } else {
             Log3D.i("非目标包，跳过 hook 安装")
