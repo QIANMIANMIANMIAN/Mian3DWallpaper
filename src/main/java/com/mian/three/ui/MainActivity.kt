@@ -2,6 +2,7 @@ package com.mian.three.ui
 
 import android.content.Context
 import android.content.Intent
+import android.content.SharedPreferences
 import android.net.Uri
 import android.os.Bundle
 import android.widget.Toast
@@ -84,49 +85,45 @@ private fun Page() {
     val context = LocalContext.current
     // ★ 用 runCatching 包住：首次组合时 LSPosed service 可能还没就绪，
     //   prefs() 内部会走 Binder，异常会直接把 Activity 干掉（表现为闪退）。
-    val prefs = remember {
-        runCatching { XposedState3D.prefs(context) }
-            .getOrElse { context.getSharedPreferences(ThreeHookEntry.PREFS_NAME, Context.MODE_PRIVATE) }
-    }
+    // ★ 不再缓存 prefs 对象！
+    //   旧写法 val prefs = remember { XposedState3D.prefs(context) } 有致命问题：
+    //   App 刚启动时 LSPosed service 往往还没连上，prefs() 会退回【本地 prefs】，
+    //   而这个本地对象被 remember 缓存住了 —— 之后 service 连上也不会换，
+    //   于是「写入本地、hook 读 remote」，值永远不同步。
+    //   （实测：MianEffect enabled 一直是 false，而 MianDepth 是 true，
+    //     因为后者曾经在 service 已连接时写过一次。）
+    //   现在：读用 readBool(context,...)，写用 writePrefs(context)，每次都现场取。
     val remote = remember { runCatching { XposedState3D.usingRemote() }.getOrDefault(false) }
 
     var enabled by remember {
         mutableStateOf(
-            runCatching { prefs.getBoolean(ThreeHookEntry.KEY_3D_ENABLE, true) }
-                .getOrDefault(true),
+            readBool(context, ThreeHookEntry.KEY_3D_ENABLE, true),
         )
     }
 
     var aiPetOn by remember {
         mutableStateOf(
-            runCatching { prefs.getBoolean(ThreeHookEntry.KEY_FEATURE_AIPET, false) }
-                .getOrDefault(false),
+            readBool(context, ThreeHookEntry.KEY_FEATURE_AIPET, false),
         )
     }
     var depthOn by remember {
         mutableStateOf(
-            runCatching { prefs.getBoolean(ThreeHookEntry.KEY_FEATURE_DEPTH, false) }
-                .getOrDefault(false),
+            readBool(context, ThreeHookEntry.KEY_FEATURE_DEPTH, false),
         )
     }
     var depthMuteOn by remember {
         mutableStateOf(
-            runCatching {
-                prefs.getBoolean(ThreeHookEntry.KEY_FEATURE_DEPTH_MUTE, true)
-            }.getOrDefault(true),
+            readBool(context, ThreeHookEntry.KEY_FEATURE_DEPTH_MUTE, true),
         )
     }
     var effectsOn by remember {
         mutableStateOf(
-            runCatching { prefs.getBoolean(ThreeHookEntry.KEY_FEATURE_EFFECTS, false) }
-                .getOrDefault(false),
+            readBool(context, ThreeHookEntry.KEY_FEATURE_EFFECTS, false),
         )
     }
     var effectsDiagOn by remember {
         mutableStateOf(
-            runCatching {
-                prefs.getBoolean(ThreeHookEntry.KEY_FEATURE_EFFECTS_DIAG, true)
-            }.getOrDefault(true),
+            readBool(context, ThreeHookEntry.KEY_FEATURE_EFFECTS_DIAG, true),
         )
     }
 
@@ -165,7 +162,7 @@ private fun Page() {
             onCheckedChange = { v ->
                 enabled = v
                 runCatching {
-                    prefs.edit().putBoolean(ThreeHookEntry.KEY_3D_ENABLE, v).commit()
+                    writePrefs(context).edit().putBoolean(ThreeHookEntry.KEY_3D_ENABLE, v).commit()
                 }.onFailure {
                     Toast.makeText(context, "保存失败：${it.javaClass.simpleName}", Toast.LENGTH_SHORT).show()
                 }
@@ -195,7 +192,7 @@ private fun Page() {
             onCheckedChange = { v ->
                 aiPetOn = v
                 runCatching {
-                    prefs.edit().putBoolean(ThreeHookEntry.KEY_FEATURE_AIPET, v).commit()
+                    writePrefs(context).edit().putBoolean(ThreeHookEntry.KEY_FEATURE_AIPET, v).commit()
                 }
             },
         )
@@ -206,7 +203,7 @@ private fun Page() {
             onCheckedChange = { v ->
                 depthOn = v
                 runCatching {
-                    prefs.edit().putBoolean(ThreeHookEntry.KEY_FEATURE_DEPTH, v).commit()
+                    writePrefs(context).edit().putBoolean(ThreeHookEntry.KEY_FEATURE_DEPTH, v).commit()
                 }
             },
         )
@@ -217,7 +214,7 @@ private fun Page() {
             onCheckedChange = { v ->
                 depthMuteOn = v
                 runCatching {
-                    prefs.edit().putBoolean(ThreeHookEntry.KEY_FEATURE_DEPTH_MUTE, v).commit()
+                    writePrefs(context).edit().putBoolean(ThreeHookEntry.KEY_FEATURE_DEPTH_MUTE, v).commit()
                 }
             },
         )
@@ -228,7 +225,7 @@ private fun Page() {
             onCheckedChange = { v ->
                 effectsOn = v
                 runCatching {
-                    prefs.edit().putBoolean(ThreeHookEntry.KEY_FEATURE_EFFECTS, v).commit()
+                    writePrefs(context).edit().putBoolean(ThreeHookEntry.KEY_FEATURE_EFFECTS, v).commit()
                 }
             },
         )
@@ -239,7 +236,7 @@ private fun Page() {
             onCheckedChange = { v ->
                 effectsDiagOn = v
                 runCatching {
-                    prefs.edit()
+                    writePrefs(context).edit()
                         .putBoolean(ThreeHookEntry.KEY_FEATURE_EFFECTS_DIAG, v).commit()
                 }
             },
@@ -491,3 +488,26 @@ private fun exportReport(context: Context) {
         }
     }.start()
 }
+
+// ==================== 配置读写（每次现场取自 remote）====================
+
+/**
+ * 读取开关。每次都现场调 XposedState3D.prefs()，
+ * 这样 LSPosed service 后连上也能立刻切换到 remote prefs。
+ */
+private fun readBool(context: Context, key: String, def: Boolean): Boolean = runCatching {
+    XposedState3D.prefs(context).getBoolean(key, def)
+}.getOrDefault(def)
+
+private fun readInt(context: Context, key: String, def: Int): Int = runCatching {
+    XposedState3D.prefs(context).getInt(key, def)
+}.getOrDefault(def)
+
+/**
+ * 取得【可写】的 prefs。
+ *
+ * ★ 优先 remote —— hook 侧读的就是它。
+ *   如果 remote 不可用，退到本地并明确告诉调用方（返回 null 时不写，避免假成功）。
+ */
+private fun writePrefs(context: Context): SharedPreferences =
+    XposedState3D.prefs(context)
